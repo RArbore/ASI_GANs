@@ -29,4 +29,16 @@ def unpickle(file):
         dict = pickle.load(fo, encoding='bytes')
     return dict
 
-print(unpickle("cifar-10-python.tar.gz"))
+files = ["data_batch_1", "data_batch_2", "data_batch_3", "data_batch_4", "data_batch_5"]
+
+tensor_images_list = []
+
+for f in files:
+    dict = unpickle("cifar-10-batches-py/"+f)
+    np_images = dict[b"data"]
+    tensor_images = torch.from_numpy(np_images)
+    tensor_images = tensor_images.view(10000, 3, 32, 32)
+    tensor_images_list.append(tensor_images)
+
+data = torch.cat(tensor_images_list, dim=0)
+print(data.size())
