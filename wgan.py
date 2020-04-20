@@ -8,6 +8,7 @@ import torch.utils.data
 import torchvision.transforms as transforms
 import math
 import time
+import pickle
 
 manualSeed = int(torch.rand(1).item() * 1000)
 print("Random Seed: ", manualSeed)
@@ -22,3 +23,10 @@ def current_milli_time():
     return int(round(time.time() * 1000))
 
 before_time = current_milli_time()
+
+def unpickle(file):
+    with open(file, 'rb') as fo:
+        dict = pickle.load(fo, encoding='bytes')
+    return dict
+
+print(unpickle("cifar-10-python.tar.gz"))
