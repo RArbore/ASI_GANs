@@ -361,7 +361,6 @@ netD.apply(weights_init)
 optimizerD = optim.Adadelta(netD.parameters(), lr=lr)
 optimizerG = optim.Adadelta(netG.parameters(), lr=lr)
 
-img_list = []
 G_losses = []
 D_losses = []
 
