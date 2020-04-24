@@ -42,6 +42,8 @@ b2 = 0.999
 
 critic_iter = 1
 
+gen_iter = 1
+
 device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 
 def current_milli_time():
@@ -83,10 +85,10 @@ minutes = math.floor(seconds / 60)
 seconds = seconds % 60
 print("Data loading took " + str(minutes) + " minute(s) " + str(seconds) + " second(s).")
 
-def weights_init(m):
-    classname = m.__class__.__name__
-    if "Conv3d" in classname:
-        torch.nn.init.xavier_uniform_(m.weight.data)
+#def weights_init(m):
+#    classname = m.__class__.__name__
+#    if "Conv3d" in classname:
+#        torch.nn.init.xavier_uniform_(m.weight.data)
 
 def check_nan(x):
     return torch.sum(x != x) > 0
@@ -110,11 +112,11 @@ class Generator(nn.Module):
 
     def forward(self, input):
         out = self.layers(input)
-        return (torch.tanh(out)+1)/2
+        return torch.tanh(out)
 
 netG = Generator().to(device)
 
-netG.apply(weights_init)
+#netG.apply(weights_init)
 
 class Discriminator(nn.Module):
 
@@ -122,27 +124,30 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.layers = nn.Sequential(
             nn.Conv2d(nc, ndf, 4, 2, 1),
+            nn.InstanceNorm2d(ndf, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(ndf, ndf * 2, 4, 2, 1),
+            nn.InstanceNorm2d(ndf * 2, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1),
+            nn.InstanceNorm2d(ndf * 4, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(ndf * 4, 1, 4, 1, 0),
         )
 
     def forward(self, input):
         out = self.layers(input)
-        return torch.sigmoid(out)
+        return out
 
 netD = Discriminator().to(device)
 
-netD.apply(weights_init)
+#netD.apply(weights_init)
 
-#optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(b1, b2))
-#optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(b1, b2))
+optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(b1, b2))
+optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(b1, b2))
 
-optimizerD = optim.Adadelta(netD.parameters(), lr=lr)
-optimizerG = optim.Adadelta(netG.parameters(), lr=lr)
+#optimizerD = optim.Adadelta(netD.parameters(), lr=lr)
+#ptimizerG = optim.Adadelta(netG.parameters(), lr=lr)
 
 G_losses = []
 D_losses = []
@@ -226,19 +231,22 @@ for epoch in range(num_epochs):
 
             optimizerD.step()
 
-        for p in netD.parameters():
-            p.requires_grad = False
+        for i in range(gen_iter):
+            for p in netD.parameters():
+                p.requires_grad = False
 
-        # errD = torch.tensor(0)
-        # D_x = 0
-        # D_G_z1 = 0
-        netG.zero_grad()
-        output = netD(fake).view(-1)
-        errG = output.mean()
-        # errG = criterion(fake, torch.ones(fake.size()).to(device)*0.2)
-        errG.backward(mone)
-        D_G_z2 = output.mean().item()
-        optimizerG.step()
+            fake = netG(noise)
+
+            # errD = torch.tensor(0)
+            # D_x = 0
+            # D_G_z1 = 0
+            netG.zero_grad()
+            output = netD(fake).view(-1)
+            errG = output.mean()
+            # errG = criterion(fake, torch.ones(fake.size()).to(device)*0.2)
+            errG.backward(mone)
+            D_G_z2 = output.mean().item()
+            optimizerG.step()
 
         if batch == (train_data_size / batch_size) - 1:
             D_G_z2_epoch = D_G_z2
