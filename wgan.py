@@ -15,13 +15,13 @@ print("Random Seed: ", manualSeed)
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 
-train_data_size = 335
+train_data_size = 335*16
 
 batch_size = 67
 
-num_epochs = 500
+num_epochs = 5000
 
-image_size = 32
+image_size = 64
 
 ngpu = 1
 
@@ -29,9 +29,9 @@ nz = 100
 
 nc = 1
 
-ngf = 32
+ngf = 64
 
-ndf = 32
+ndf = 64
 
 lr = 0.0002
 
@@ -40,7 +40,7 @@ LAMBDA = 10
 b1 = 0.5
 b2 = 0.999
 
-critic_iter = 10
+critic_iter = 1
 
 gen_iter = 1
 
@@ -61,7 +61,7 @@ os.mkdir(folder)
 
 print("Created session folder " + folder)
 
-'''
+
 def unpickle(file):
     with open(file, 'rb') as fo:
         dict = pickle.load(fo, encoding='bytes')
@@ -71,6 +71,7 @@ files = ["data_batch_1", "data_batch_2", "data_batch_3", "data_batch_4", "data_b
 
 tensor_images_list = []
 
+'''
 for f in files:
     dict = unpickle("cifar-10-batches-py/"+f)
     np_images = dict[b"data"]
@@ -78,12 +79,15 @@ for f in files:
     tensor_images = tensor_images.view(10000, 3, 32, 32)
     tensor_images_list.append(tensor_images)
 
-data = torch.cat(tensor_images_list, dim=0)
-'''
+data = torch.cat(tensor_images_list, dim=0).float()
+data = torch.mean(data, dim=1).view(50000, 1, 32, 32)
 
+'''
 data = torch.load("TRIMMED64.pt")
-data = data.permute(1, 0, 2, 3, 4)[:, 1, 32, :, :].view(335, 1, 64, 64)
-data = nn.functional.interpolate(data, scale_factor = 0.5)
+data = data.permute(1, 0, 2, 3, 4)[:, 0, 24:40, :, :]*256
+data = data.reshape(335*16, 1, 64, 64)
+#data = nn.functional.interpolate(data, scale_factor = 0.5)
+
 
 after_time = current_milli_time()
 seconds = math.floor((after_time - before_time) / 1000)
@@ -104,7 +108,10 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         self.layers = nn.Sequential(
-            nn.ConvTranspose2d(nz, ngf * 4, 4, 1, 0),
+            nn.ConvTranspose2d(nz, ngf * 8, 4, 1, 0),
+            nn.BatchNorm2d(ngf * 8),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1),
             nn.BatchNorm2d(ngf * 4),
             nn.ReLU(True),
             nn.ConvTranspose2d(ngf * 4, ngf * 2, 4, 2, 1),
@@ -138,7 +145,10 @@ class Discriminator(nn.Module):
             nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1),
             nn.InstanceNorm2d(ndf * 4, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 4, 1, 4, 1, 0),
+            nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1),
+            nn.InstanceNorm2d(ndf * 8, affine=True),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(ndf * 8, 1, 4, 1, 0),
         )
 
     def forward(self, input):
@@ -300,6 +310,7 @@ for epoch in range(num_epochs):
                 torch.save(netG.state_dict(), folder + "/gan_models/gen_at_e" + str(epoch + 1) + ".pt")
             for image in range(0, batch_size):
                 save_image(fake[image, :, :, :], folder + "/dcgan_output/epoch_" + str(epoch) + "/image" + str(image + 1) + ".png")
+            save_image(real[0, 0, :, :],folder + "/dcgan_output/epoch_" + str(epoch) + "/real_image" + str(image + 1) + ".png")
         G_losses.append(errG.item())
         D_losses.append(errD.item())
 f.close()
