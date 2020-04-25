@@ -15,13 +15,13 @@ print("Random Seed: ", manualSeed)
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 
-train_data_size = 50000
+train_data_size = 300
 
-batch_size = 50
+batch_size = 10
 
 num_epochs = 500
 
-image_size = 32
+image_size = 64
 
 ngpu = 1
 
@@ -61,6 +61,7 @@ os.mkdir(folder)
 
 print("Created session folder " + folder)
 
+'''
 def unpickle(file):
     with open(file, 'rb') as fo:
         dict = pickle.load(fo, encoding='bytes')
@@ -78,6 +79,9 @@ for f in files:
     tensor_images_list.append(tensor_images)
 
 data = torch.cat(tensor_images_list, dim=0)
+'''
+
+data = torch.load("TRIMMED64.pt")
 
 after_time = current_milli_time()
 seconds = math.floor((after_time - before_time) / 1000)
@@ -98,16 +102,19 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         self.layers = nn.Sequential(
-            nn.ConvTranspose2d(nz, ngf * 4, 4, 1, 0),
-            nn.BatchNorm2d(ngf * 4),
+            nn.ConvTranspose3d(nz, ngf * 8, 4, 1, 0),
+            nn.BatchNorm3d(ngf * 8),
             nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 4, ngf * 2, 4, 2, 1),
-            nn.BatchNorm2d(ngf * 2),
+            nn.ConvTranspose3d(ngf * 8, ngf * 4, 4, 2, 1),
+            nn.BatchNorm3d(ngf * 4),
             nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf, 4, 2, 1),
-            nn.BatchNorm2d(ngf),
+            nn.ConvTranspose3d(ngf * 4, ngf * 2, 4, 2, 1),
+            nn.BatchNorm3d(ngf * 2),
             nn.ReLU(True),
-            nn.ConvTranspose2d(ngf, nc, 4, 2, 1),
+            nn.ConvTranspose3d(ngf * 2, ngf, 4, 2, 1),
+            nn.BatchNorm3d(ngf),
+            nn.ReLU(True),
+            nn.ConvTranspose3d(ngf, nc, 4, 2, 1),
         )
 
     def forward(self, input):
@@ -123,16 +130,19 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
         self.layers = nn.Sequential(
-            nn.Conv2d(nc, ndf, 4, 2, 1),
-            nn.InstanceNorm2d(ndf, affine=True),
+            nn.Conv3d(nc, ndf, 4, 2, 1),
+            nn.InstanceNorm3d(ndf, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf, ndf * 2, 4, 2, 1),
-            nn.InstanceNorm2d(ndf * 2, affine=True),
+            nn.Conv3d(ndf, ndf * 2, 4, 2, 1),
+            nn.InstanceNorm3d(ndf * 2, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1),
-            nn.InstanceNorm2d(ndf * 4, affine=True),
+            nn.Conv3d(ndf * 2, ndf * 4, 4, 2, 1),
+            nn.InstanceNorm3d(ndf * 4, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 4, 1, 4, 1, 0),
+            nn.Conv3d(ndf * 4, ndf * 8, 4, 2, 1),
+            nn.InstanceNorm3d(ndf * 8, affine=True),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(ndf * 8, 1, 4, 1, 0),
         )
 
     def forward(self, input):
@@ -169,8 +179,8 @@ gengradf = open(folder + "/gen_grad.txt", "a")
 disgradf = open(folder + "/dis_grad.txt", "a")
 
 def calc_gradient_penalty(D, real_images, fake_images):
-    eta = torch.FloatTensor(batch_size, 1, 1, 1).uniform_(0, 1).to(device)
-    eta = eta.expand(batch_size, real_images.size(1), real_images.size(2), real_images.size(3))
+    eta = torch.FloatTensor(batch_size, 1, 1, 1, 1).uniform_(0, 1).to(device)
+    eta = eta.expand(batch_size, real_images.size(1), real_images.size(2), real_images.size(3), real_images.size(4))
 
     interpolated = eta * real_images + ((1 - eta) * fake_images)
     interpolated.to(device)
@@ -196,7 +206,7 @@ for epoch in range(num_epochs):
     if not os.path.isdir(folder + "/dcgan_output/epoch_" + str(epoch)):
         os.mkdir(folder + "/dcgan_output/epoch_" + str(epoch))
     for batch in range(int(train_data_size / batch_size)):
-        noise = torch.randn(batch_size, nz, 1, 1, device=device)
+        noise = torch.randn(batch_size, nz, 1, 1, 1, device=device)
         fake = netG(noise)
         if (check_nan(fake)):
             print(0)
@@ -293,7 +303,8 @@ for epoch in range(num_epochs):
                 torch.save(netD.state_dict(), folder + "/gan_models/dis_at_e" + str(epoch + 1) + ".pt")
                 torch.save(netG.state_dict(), folder + "/gan_models/gen_at_e" + str(epoch + 1) + ".pt")
             for image in range(0, batch_size):
-                save_image(fake[image, :, :, :], folder + "/dcgan_output/epoch_" + str(epoch) + "/image" + str(image + 1) + ".png")
+                for dim in range(0, image_size):
+                    save_image(fake[image, dim, :, :], folder + "/dcgan_output/epoch_" + str(epoch) + "/image" + str(image + 1) + "_dim" +str(dim + 1)+ ".png")
         G_losses.append(errG.item())
         D_losses.append(errD.item())
 f.close()
