@@ -27,11 +27,11 @@ ngpu = 1
 
 nz = 100
 
-nc = 3
+nc = 1
 
-ngf = 32
+ngf = 128
 
-ndf = 32
+ndf = 128
 
 lr = 0.0002
 
@@ -40,7 +40,7 @@ LAMBDA = 10
 b1 = 0.5
 b2 = 0.999
 
-critic_iter = 1
+critic_iter = 5
 
 gen_iter = 1
 
@@ -81,7 +81,9 @@ for f in files:
 data = torch.cat(tensor_images_list, dim=0)
 '''
 
-data = torch.load("TRIMMED64.pt")
+data = torch.load("TRIMMED64.pt")[0:1, :, 32, :, :]
+data = data.permute(1, 0, 2, 3)
+#data = nn.functional.interpolate(data, scale_factor=0.25)
 
 after_time = current_milli_time()
 seconds = math.floor((after_time - before_time) / 1000)
@@ -102,24 +104,51 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         self.layers = nn.Sequential(
-            nn.ConvTranspose3d(nz, ngf * 8, 4, 1, 0),
-            nn.BatchNorm3d(ngf * 8),
+            nn.Conv2d(nz, ngf * 8, 4, 1, 3),
             nn.ReLU(True),
-            nn.ConvTranspose3d(ngf * 8, ngf * 4, 4, 2, 1),
-            nn.BatchNorm3d(ngf * 4),
+            nn.Conv2d(ngf * 8, ngf * 8, 3, 1, 1),
             nn.ReLU(True),
-            nn.ConvTranspose3d(ngf * 4, ngf * 2, 4, 2, 1),
-            nn.BatchNorm3d(ngf * 2),
+            nn.Upsample(scale_factor=2),
+            nn.Conv2d(ngf * 8, ngf * 4, 3, 1, 1),
             nn.ReLU(True),
-            nn.ConvTranspose3d(ngf * 2, ngf, 4, 2, 1),
-            nn.BatchNorm3d(ngf),
+            nn.Conv2d(ngf * 4, ngf * 4, 3, 1, 1),
             nn.ReLU(True),
-            nn.ConvTranspose3d(ngf, nc, 4, 2, 1),
+            nn.Upsample(scale_factor=2),
+            nn.Conv2d(ngf * 4, ngf * 2, 3, 1, 1),
+            nn.ReLU(True),
+            nn.Conv2d(ngf * 2, ngf * 2, 3, 1, 1),
+            nn.ReLU(True),
+            nn.Upsample(scale_factor=2),
+            nn.Conv2d(ngf * 2, ngf, 3, 1, 1),
+            nn.ReLU(True),
+            nn.Conv2d(ngf, ngf, 3, 1, 1),
+            nn.ReLU(True),
+            nn.Upsample(scale_factor=2),
+            nn.Conv2d(ngf, nc, 3, 1, 1),
+            nn.ReLU(True),
+            nn.Conv2d(nc, nc, 3, 1, 1),
         )
+        '''
+        self.layers = nn.Sequential(
+            nn.ConvTranspose2d(nz, ngf * 8, 4, 1, 0),
+            nn.BatchNorm2d(ngf * 8),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1),
+            nn.BatchNorm2d(ngf * 4),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(ngf * 4, ngf * 2, 4, 2, 1),
+            nn.BatchNorm2d(ngf * 2),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(ngf * 2, ngf, 4, 2, 1),
+            nn.BatchNorm2d(ngf),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(ngf, nc, 4, 2, 1),
+        )
+        '''
 
     def forward(self, input):
         out = self.layers(input)
-        return torch.tanh(out)
+        return (torch.tanh(out)+1)/2
 
 netG = Generator().to(device)
 
@@ -130,20 +159,47 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
         self.layers = nn.Sequential(
-            nn.Conv3d(nc, ndf, 4, 2, 1),
-            nn.InstanceNorm3d(ndf, affine=True),
+            nn.Conv2d(nc, ndf, 3, 1, 1),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(ndf, ndf * 2, 4, 2, 1),
-            nn.InstanceNorm3d(ndf * 2, affine=True),
+            nn.Conv2d(ndf, ndf, 3, 1, 1),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(ndf * 2, ndf * 4, 4, 2, 1),
-            nn.InstanceNorm3d(ndf * 4, affine=True),
+            nn.AvgPool2d(kernel_size=2),
+            nn.Conv2d(ndf, ndf * 2, 3, 1, 1),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(ndf * 4, ndf * 8, 4, 2, 1),
-            nn.InstanceNorm3d(ndf * 8, affine=True),
+            nn.Conv2d(ndf * 2, ndf * 2, 3, 1, 1),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(ndf * 8, 1, 4, 1, 0),
+            nn.AvgPool2d(kernel_size=2),
+            nn.Conv2d(ndf * 2, ndf * 4, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(ndf * 4, ndf * 4, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.AvgPool2d(kernel_size=2),
+            nn.Conv2d(ndf * 4, ndf * 8, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(ndf * 8, ndf * 8, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.AvgPool2d(kernel_size=2),
+            nn.Conv2d(ndf * 8, 1, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(1, 1, 4, 1, 0),
         )
+        '''
+        self.layers = nn.Sequential(
+            nn.Conv2d(nc, ndf, 4, 2, 1),
+            nn.InstanceNorm2d(ndf, affine=True),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(ndf, ndf * 2, 4, 2, 1),
+            nn.InstanceNorm2d(ndf * 2, affine=True),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1),
+            nn.InstanceNorm2d(ndf * 4, affine=True),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1),
+            nn.InstanceNorm2d(ndf * 8, affine=True),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(ndf * 8, 1, 4, 1, 0),
+        )
+        '''
 
     def forward(self, input):
         out = self.layers(input)
@@ -179,8 +235,8 @@ gengradf = open(folder + "/gen_grad.txt", "a")
 disgradf = open(folder + "/dis_grad.txt", "a")
 
 def calc_gradient_penalty(D, real_images, fake_images):
-    eta = torch.FloatTensor(batch_size, 1, 1, 1, 1).uniform_(0, 1).to(device)
-    eta = eta.expand(batch_size, real_images.size(1), real_images.size(2), real_images.size(3), real_images.size(4))
+    eta = torch.FloatTensor(batch_size, 1, 1, 1).uniform_(0, 1).to(device)
+    eta = eta.expand(batch_size, real_images.size(1), real_images.size(2), real_images.size(3))
 
     interpolated = eta * real_images + ((1 - eta) * fake_images)
     interpolated.to(device)
@@ -206,7 +262,7 @@ for epoch in range(num_epochs):
     if not os.path.isdir(folder + "/dcgan_output/epoch_" + str(epoch)):
         os.mkdir(folder + "/dcgan_output/epoch_" + str(epoch))
     for batch in range(int(train_data_size / batch_size)):
-        noise = torch.randn(batch_size, nz, 1, 1, 1, device=device)
+        noise = torch.randn(batch_size, nz, 1, 1, device=device)
         fake = netG(noise)
         if (check_nan(fake)):
             print(0)
@@ -275,7 +331,7 @@ for epoch in range(num_epochs):
             gen_std = 0
             count = 0
             for layer in netG.layers:
-                if "ConvTranspose2d" in str(layer) and not layer.weight.grad is None:
+                if "Conv2d" in str(layer) and not layer.weight.grad is None:
                     gen_abs_mean += torch.mean(torch.abs(layer.weight.grad)).item()
                     gen_std += torch.std(layer.weight.grad).item()
                     count += 1
@@ -303,8 +359,9 @@ for epoch in range(num_epochs):
                 torch.save(netD.state_dict(), folder + "/gan_models/dis_at_e" + str(epoch + 1) + ".pt")
                 torch.save(netG.state_dict(), folder + "/gan_models/gen_at_e" + str(epoch + 1) + ".pt")
             for image in range(0, batch_size):
-                for dim in range(0, image_size):
-                    save_image(fake[image, dim, :, :], folder + "/dcgan_output/epoch_" + str(epoch) + "/image" + str(image + 1) + "_dim" +str(dim + 1)+ ".png")
+                #for dim in range(0, image_size):
+                save_image(fake[image, 0, :, :], folder + "/dcgan_output/epoch_" + str(epoch) + "/nonseg_image" + str(image + 1) + ".png")# + "_dim" +str(dim + 1) + ".png")
+                    #save_image(fake[image, 1, dim, :, :], folder + "/dcgan_output/epoch_" + str(epoch) + "/seg_image" + str(image + 1) + "_dim" + str(dim + 1) + ".png")
         G_losses.append(errG.item())
         D_losses.append(errD.item())
 f.close()

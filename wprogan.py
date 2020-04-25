@@ -46,6 +46,9 @@ alpha = 0
 
 lambda_term = 10
 
+b1 = 0.5
+b2 = 0.999
+
 device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 
 
@@ -330,7 +333,7 @@ class BlockedDiscriminator(nn.Module):
 
         out = self.blocks[total_blocks - 1](y)
 
-        return torch.sigmoid(out)
+        return out
 
 def calculate_gradient_penalty(netD, real_images, fake_images, d_loss):
     eta = torch.FloatTensor(batch_size, 2, 1, 1, 1).uniform_(0, 1).to(device)
@@ -358,8 +361,8 @@ if (device.type == 'cuda') and (ngpu > 1):
 
 netD.apply(weights_init)
 
-optimizerD = optim.Adadelta(netD.parameters(), lr=lr)
-optimizerG = optim.Adadelta(netG.parameters(), lr=lr)
+optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(b1, b2))
+optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(b1, b2))
 
 G_losses = []
 D_losses = []
