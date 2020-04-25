@@ -15,9 +15,9 @@ print("Random Seed: ", manualSeed)
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 
-train_data_size = 335
+train_data_size = 1
 
-batch_size = 67
+batch_size = 1
 
 num_epochs = 5000
 
@@ -42,7 +42,7 @@ b2 = 0.999
 
 critic_iter = 1
 
-gen_iter = 1
+gen_iter = 10
 
 device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 
@@ -103,24 +103,46 @@ print("Data loading took " + str(minutes) + " minute(s) " + str(seconds) + " sec
 def check_nan(x):
     return torch.sum(x != x) > 0
 
+class FeatureNormLayer(nn.Module):
+    def __init__(self, eps=1e-8):
+        super(FeatureNormLayer, self).__init__()
+        self.eps = eps
+
+    def forward(self, x):
+        return x / torch.sqrt(torch.mean(x ** 2, dim=1, keepdim=True) + 1e-8)
+
 class Generator(nn.Module):
 
     def __init__(self):
         super(Generator, self).__init__()
         self.layers = nn.Sequential(
-            nn.ConvTranspose3d(nz, ngf * 8, 4, 1, 0),
-            nn.BatchNorm3d(ngf * 8),
-            nn.ReLU(True),
-            nn.ConvTranspose3d(ngf * 8, ngf * 4, 4, 2, 1),
-            nn.BatchNorm3d(ngf * 4),
-            nn.ReLU(True),
-            nn.ConvTranspose3d(ngf * 4, ngf * 2, 4, 2, 1),
-            nn.BatchNorm3d(ngf * 2),
-            nn.ReLU(True),
-            nn.ConvTranspose3d(ngf * 2, ngf, 4, 2, 1),
-            nn.BatchNorm3d(ngf),
-            nn.ReLU(True),
-            nn.ConvTranspose3d(ngf, nc, 4, 2, 1),
+            nn.Conv3d(nz, ngf * 8, 4, 1, 3),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(ngf * 8, ngf * 8, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Upsample(scale_factor=2),
+
+            nn.Conv3d(ngf * 8, ngf * 4, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(ngf * 4, ngf * 4, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Upsample(scale_factor=2),
+
+            nn.Conv3d(ngf * 4, ngf * 2, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(ngf * 2, ngf * 2, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Upsample(scale_factor=2),
+
+            nn.Conv3d(ngf * 2, ngf, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(ngf, ngf, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Upsample(scale_factor=2),
+
+            nn.Conv3d(ngf, nc, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(nc, nc, 3, 1, 1),
         )
 
     def forward(self, input):
@@ -136,19 +158,33 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
         self.layers = nn.Sequential(
-            nn.Conv3d(nc, ndf, 4, 2, 1),
-            nn.InstanceNorm3d(ndf, affine=True),
+            nn.Conv3d(nc, ndf, 3, 1, 1),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(ndf, ndf * 2, 4, 2, 1),
-            nn.InstanceNorm3d(ndf * 2, affine=True),
+            nn.Conv3d(ndf, ndf, 3, 1, 1),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(ndf * 2, ndf * 4, 4, 2, 1),
-            nn.InstanceNorm3d(ndf * 4, affine=True),
+            nn.AvgPool3d(kernel_size=2),
+
+            nn.Conv3d(ndf, ndf * 2, 3, 1, 1),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(ndf * 4, ndf * 8, 4, 2, 1),
-            nn.InstanceNorm3d(ndf * 8, affine=True),
+            nn.Conv3d(ndf * 2, ndf * 2, 3, 1, 1),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(ndf * 8, 1, 4, 1, 0),
+            nn.AvgPool3d(kernel_size=2),
+
+            nn.Conv3d(ndf * 2, ndf * 4, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(ndf * 4, ndf * 4, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.AvgPool3d(kernel_size=2),
+
+            nn.Conv3d(ndf * 4, ndf * 8, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(ndf * 8, ndf * 8, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.AvgPool3d(kernel_size=2),
+
+            nn.Conv3d(ndf * 8, 1, 3, 1, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(1, 1, 4, 1, 0),
         )
 
     def forward(self, input):
@@ -281,7 +317,7 @@ for epoch in range(num_epochs):
             gen_std = 0
             count = 0
             for layer in netG.layers:
-                if "ConvTranspose3d" in str(layer) and not layer.weight.grad is None:
+                if ("Conv3d" in str(layer) or "ConvTranspose3d" in str(layer)) and not layer.weight.grad is None:
                     gen_abs_mean += torch.mean(torch.abs(layer.weight.grad)).item()
                     gen_std += torch.std(layer.weight.grad).item()
                     count += 1
