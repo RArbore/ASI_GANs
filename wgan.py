@@ -15,9 +15,9 @@ print("Random Seed: ", manualSeed)
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 
-train_data_size = 1
+train_data_size = 335
 
-batch_size = 1
+batch_size = 67
 
 num_epochs = 5000
 
@@ -42,7 +42,7 @@ b2 = 0.999
 
 critic_iter = 1
 
-gen_iter = 10
+gen_iter = 1
 
 device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 
