@@ -15,9 +15,9 @@ print("Random Seed: ", manualSeed)
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 
-train_data_size = 50000
+train_data_size = 335
 
-batch_size = 50
+batch_size = 67
 
 num_epochs = 500
 
@@ -27,7 +27,7 @@ ngpu = 1
 
 nz = 100
 
-nc = 3
+nc = 1
 
 ngf = 32
 
@@ -40,7 +40,7 @@ LAMBDA = 10
 b1 = 0.5
 b2 = 0.999
 
-critic_iter = 1
+critic_iter = 10
 
 gen_iter = 1
 
@@ -61,6 +61,7 @@ os.mkdir(folder)
 
 print("Created session folder " + folder)
 
+'''
 def unpickle(file):
     with open(file, 'rb') as fo:
         dict = pickle.load(fo, encoding='bytes')
@@ -78,6 +79,11 @@ for f in files:
     tensor_images_list.append(tensor_images)
 
 data = torch.cat(tensor_images_list, dim=0)
+'''
+
+data = torch.load("TRIMMED64.pt")
+data = data.permute(1, 0, 2, 3, 4)[:, 1, 32, :, :].view(335, 1, 64, 64)
+data = nn.functional.interpolate(data, scale_factor = 0.5)
 
 after_time = current_milli_time()
 seconds = math.floor((after_time - before_time) / 1000)
