@@ -17,7 +17,7 @@ torch.manual_seed(manualSeed)
 
 train_data_size = 335
 
-batch_size = 67
+batch_size = 5
 
 num_epochs = 5000
 
@@ -27,7 +27,7 @@ ngpu = 1
 
 nz = 100
 
-nc = 1
+nc = 2
 
 ngf = 64
 
@@ -84,8 +84,8 @@ data = torch.mean(data, dim=1).view(50000, 1, 32, 32)
 
 '''
 data = torch.load("TRIMMED64.pt")
-data = data.permute(1, 0, 2, 3, 4)[:, 0, :, :, :]*256
-data = data.view(335, 1, 64, 64, 64)
+data = data.permute(1, 0, 2, 3, 4)[:, 0:2, :, :, :]*256
+data = data.view(335, 2, 64, 64, 64)
 #data = nn.functional.interpolate(data, scale_factor = 0.5)
 
 
@@ -310,7 +310,8 @@ for epoch in range(num_epochs):
                 torch.save(netG.state_dict(), folder + "/gan_models/gen_at_e" + str(epoch + 1) + ".pt")
             for image in range(0, batch_size):
                 for dim in range(0, image_size):
-                    save_image(fake[image, 0, dim, :, :], folder + "/dcgan_output/epoch_" + str(epoch) + "/image" + str(image + 1) + "_dim" + str(dim + 1) + ".png")
+                    save_image(fake[image, 0, dim, :, :], folder + "/dcgan_output/epoch_" + str(epoch) + "/scanimage" + str(image + 1) + "_dim" + str(dim + 1) + ".png")
+                    save_image(fake[image, 1, dim, :, :], folder + "/dcgan_output/epoch_" + str(epoch) + "/segimage" + str(image + 1) + "_dim" + str(dim + 1) + ".png")
             #save_image(real[0, 0, :, :],folder + "/dcgan_output/epoch_" + str(epoch) + "/real_image" + str(image + 1) + ".png")
         G_losses.append(errG.item())
         D_losses.append(errD.item())
