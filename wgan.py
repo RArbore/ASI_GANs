@@ -109,18 +109,23 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.layers = nn.Sequential(
             nn.ConvTranspose3d(nz, ngf * 8, 4, 1, 0),
+            nn.Conv3d(ngf * 8, ngf * 8, 3, 1, 1),
             nn.BatchNorm3d(ngf * 8),
             nn.ReLU(True),
             nn.ConvTranspose3d(ngf * 8, ngf * 4, 4, 2, 1),
+            nn.Conv3d(ngf * 4, ngf * 4, 3, 1, 1),
             nn.BatchNorm3d(ngf * 4),
             nn.ReLU(True),
             nn.ConvTranspose3d(ngf * 4, ngf * 2, 4, 2, 1),
+            nn.Conv3d(ngf * 2, ngf * 2, 3, 1, 1),
             nn.BatchNorm3d(ngf * 2),
             nn.ReLU(True),
             nn.ConvTranspose3d(ngf * 2, ngf, 4, 2, 1),
+            nn.Conv3d(ngf, ngf, 3, 1, 1),
             nn.BatchNorm3d(ngf),
             nn.ReLU(True),
             nn.ConvTranspose3d(ngf, nc, 4, 2, 1),
+            nn.Conv3d(nc, nc, 3, 1, 1),
         )
 
     def forward(self, input):
@@ -137,18 +142,23 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.layers = nn.Sequential(
             nn.Conv3d(nc, ndf, 4, 2, 1),
+            nn.Conv3d(ndf, ndf, 3, 1, 1),
             nn.InstanceNorm3d(ndf, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv3d(ndf, ndf * 2, 4, 2, 1),
+            nn.Conv3d(ndf * 2, ndf * 2, 3, 1, 1),
             nn.InstanceNorm3d(ndf * 2, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv3d(ndf * 2, ndf * 4, 4, 2, 1),
+            nn.Conv3d(ndf * 4, ndf * 4, 3, 1, 1),
             nn.InstanceNorm3d(ndf * 4, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv3d(ndf * 4, ndf * 8, 4, 2, 1),
+            nn.Conv3d(ndf * 8, ndf * 8, 3, 1, 1),
             nn.InstanceNorm3d(ndf * 8, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv3d(ndf * 8, 1, 4, 1, 0),
+            nn.Conv3d(1, 1, 3, 1, 1),
         )
 
     def forward(self, input):
