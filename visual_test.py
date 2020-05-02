@@ -21,18 +21,23 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.layers = nn.Sequential(
             nn.ConvTranspose3d(nz, ngf * 8, 4, 1, 0),
+            #nn.Conv3d(ngf * 8, ngf * 8, 3, 1, 1),
             nn.BatchNorm3d(ngf * 8),
             nn.ReLU(True),
             nn.ConvTranspose3d(ngf * 8, ngf * 4, 4, 2, 1),
+            #nn.Conv3d(ngf * 4, ngf * 4, 3, 1, 1),
             nn.BatchNorm3d(ngf * 4),
             nn.ReLU(True),
             nn.ConvTranspose3d(ngf * 4, ngf * 2, 4, 2, 1),
+            #nn.Conv3d(ngf * 2, ngf * 2, 3, 1, 1),
             nn.BatchNorm3d(ngf * 2),
             nn.ReLU(True),
             nn.ConvTranspose3d(ngf * 2, ngf, 4, 2, 1),
+            #nn.Conv3d(ngf, ngf, 3, 1, 1),
             nn.BatchNorm3d(ngf),
             nn.ReLU(True),
             nn.ConvTranspose3d(ngf, nc, 4, 2, 1),
+            #nn.Conv3d(nc, nc, 3, 1, 1),
         )
 
     def forward(self, input):
@@ -40,7 +45,7 @@ class Generator(nn.Module):
         return torch.tanh(out)
 
 netG = Generator().to(device)
-netG.load_state_dict(torch.load("gantrial148/gan_models/gen_at_e5000.pt"))
+netG.load_state_dict(torch.load("gantrial148/gan_models/gen_at_e4950.pt"))
 
 data = torch.load("TRIMMED64.pt")
 data = data.permute(1, 0, 2, 3, 4)[:, 0:2, :, :, :]
@@ -63,7 +68,7 @@ for i in range(8):
     b[1] = 0
     b = b[:, 32, :, :]
     image_list.append(b)
-#random.shuffle(image_list)
+random.shuffle(image_list)
 
 def save_image(tensor, filename):
     ndarr = tensor.mul(256).clamp(0, 255).int().byte().cpu()
