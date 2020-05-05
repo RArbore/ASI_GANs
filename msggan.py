@@ -40,7 +40,7 @@ LAMBDA = 10
 b1 = 0.5
 b2 = 0.999
 
-critic_iter = 1
+critic_iter = 2
 
 gen_iter = 1
 
@@ -148,7 +148,6 @@ class Generator(nn.Module):
             nn.BatchNorm3d(nc),
             nn.ReLU(True),
             nn.Conv3d(nc, nc, 3, 1, 1),
-            nn.ReLU(True),
         )
         self.blocks = [self.block1, self.block2, self.block3, self.block4, self.block5]
         self.rgb1 = nn.Sequential(
@@ -260,8 +259,8 @@ def save_image(tensor, filename):
     image = transforms.ToPILImage()(ndarr)
     image.save(filename)
 
-if not os.path.isdir(folder + "/dcgan_output"):
-    os.mkdir(folder + "/dcgan_output")
+if not os.path.isdir(folder + "/gan_output"):
+    os.mkdir(folder + "/gan_output")
 if not os.path.isdir(folder + "/gan_models"):
     os.mkdir(folder + "/gan_models")
 f = open(folder + "/gan_performance.txt", "a")
@@ -293,8 +292,8 @@ def calc_gradient_penalty(D, r, f):
 print("Starting Training Loop...")
 for epoch in range(num_epochs):
     epoch_before_time = current_milli_time()
-    if not os.path.isdir(folder + "/dcgan_output/epoch_" + str(epoch)):
-        os.mkdir(folder + "/dcgan_output/epoch_" + str(epoch))
+    if not os.path.isdir(folder + "/gan_output/epoch_" + str(epoch)):
+        os.mkdir(folder + "/gan_output/epoch_" + str(epoch))
     for batch in range(int(train_data_size / batch_size)):
         noise = torch.randn(batch_size, nz, 1, 1, 1, device=device)
         fake = netG(noise)
@@ -396,9 +395,9 @@ for epoch in range(num_epochs):
                 torch.save(netG.state_dict(), folder + "/gan_models/gen_at_e" + str(epoch + 1) + ".pt")
             for image in range(0, batch_size):
                 for dim in range(0, image_size):
-                    save_image(fake[4][image, 0, dim, :, :], folder + "/dcgan_output/epoch_" + str(epoch) + "/scanimage" + str(image + 1) + "_dim" + str(dim + 1) + ".png")
-                    save_image(fake[4][image, 1, dim, :, :], folder + "/dcgan_output/epoch_" + str(epoch) + "/segimage" + str(image + 1) + "_dim" + str(dim + 1) + ".png")
-            #save_image(real[0, 0, :, :],folder + "/dcgan_output/epoch_" + str(epoch) + "/real_image" + str(image + 1) + ".png")
+                    save_image(fake[4][image, 0, dim, :, :], folder + "/gan_output/epoch_" + str(epoch) + "/scanimage" + str(image + 1) + "_dim" + str(dim + 1) + ".png")
+                    save_image(fake[4][image, 1, dim, :, :], folder + "/gan_output/epoch_" + str(epoch) + "/segimage" + str(image + 1) + "_dim" + str(dim + 1) + ".png")
+            #save_image(real[0, 0, :, :],folder + "/gan_output/epoch_" + str(epoch) + "/real_image" + str(image + 1) + ".png")
         G_losses.append(errG.item())
         D_losses.append(errD.item())
 f.close()
