@@ -29,9 +29,9 @@ nz = 100
 
 nc = 2
 
-ngf = 8
+ngf = 16
 
-ndf = 8
+ndf = 16
 
 lr = 0.0002
 
@@ -40,7 +40,7 @@ LAMBDA = 10
 b1 = 0.5
 b2 = 0.999
 
-critic_iter = 2
+critic_iter = 1
 
 gen_iter = 1
 
@@ -111,43 +111,24 @@ class Generator(nn.Module):
             nn.ConvTranspose3d(nz, ngf * 8, 4, 1, 0),
             nn.BatchNorm3d(ngf * 8),
             nn.ReLU(True),
-            nn.Conv3d(ngf * 8, ngf * 8, 3, 1, 1),
-            nn.BatchNorm3d(ngf * 8),
-            nn.ReLU(True),
         )
         self.block2 = nn.Sequential(
-            nn.Upsample(scale_factor=2),
-            nn.Conv3d(ngf * 8, ngf * 4, 3, 1, 1),
-            nn.BatchNorm3d(ngf * 4),
-            nn.ReLU(True),
-            nn.Conv3d(ngf * 4, ngf * 4, 3, 1, 1),
+            nn.ConvTranspose3d(ngf * 8, ngf * 4, 4, 2, 1),
             nn.BatchNorm3d(ngf * 4),
             nn.ReLU(True),
         )
         self.block3 = nn.Sequential(
-            nn.Upsample(scale_factor=2),
-            nn.Conv3d(ngf * 4, ngf * 2, 3, 1, 1),
-            nn.BatchNorm3d(ngf * 2),
-            nn.ReLU(True),
-            nn.Conv3d(ngf * 2, ngf * 2, 3, 1, 1),
+            nn.ConvTranspose3d(ngf * 4, ngf * 2, 4, 2, 1),
             nn.BatchNorm3d(ngf * 2),
             nn.ReLU(True),
         )
         self.block4 = nn.Sequential(
-            nn.Upsample(scale_factor=2),
-            nn.Conv3d(ngf * 2, ngf, 3, 1, 1),
-            nn.BatchNorm3d(ngf),
-            nn.ReLU(True),
-            nn.Conv3d(ngf, ngf, 3, 1, 1),
+            nn.ConvTranspose3d(ngf * 2, ngf, 4, 2, 1),
             nn.BatchNorm3d(ngf),
             nn.ReLU(True),
         )
         self.block5 = nn.Sequential(
-            nn.Upsample(scale_factor=2),
-            nn.Conv3d(ngf, nc, 3, 1, 1),
-            nn.BatchNorm3d(nc),
-            nn.ReLU(True),
-            nn.Conv3d(nc, nc, 3, 1, 1),
+            nn.ConvTranspose3d(ngf, nc, 4, 2, 1),
         )
         self.blocks = [self.block1, self.block2, self.block3, self.block4, self.block5]
         self.rgb1 = nn.Sequential(
@@ -185,46 +166,27 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
         self.block1 = nn.Sequential(
-            nn.Conv3d(nc, ndf, 3, 1, 1),
+            nn.Conv3d(nc, ndf, 4, 2, 1),
             nn.InstanceNorm3d(ndf, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(ndf, ndf, 3, 1, 1),
-            nn.InstanceNorm3d(ndf, affine=True),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.AvgPool3d(kernel_size=2),
         )
         self.block2 = nn.Sequential(
-            nn.Conv3d(ndf + nc, ndf * 2, 3, 1, 1),
+            nn.Conv3d(ndf + nc, ndf * 2, 4, 2, 1),
             nn.InstanceNorm3d(ndf * 2, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(ndf * 2, ndf * 2, 3, 1, 1),
-            nn.InstanceNorm3d(ndf * 2, affine=True),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.AvgPool3d(kernel_size=2),
         )
         self.block3 = nn.Sequential(
-            nn.Conv3d(ndf * 2 + nc, ndf * 4, 3, 1, 1),
+            nn.Conv3d(ndf * 2 + nc, ndf * 4, 4, 2, 1),
             nn.InstanceNorm3d(ndf * 4, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(ndf * 4, ndf * 4, 3, 1, 1),
-            nn.InstanceNorm3d(ndf * 4, affine=True),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.AvgPool3d(kernel_size=2),
         )
         self.block4 = nn.Sequential(
-            nn.Conv3d(ndf * 4 + nc, ndf * 8, 3, 1, 1),
+            nn.Conv3d(ndf * 4 + nc, ndf * 8, 4, 2, 1),
             nn.InstanceNorm3d(ndf * 8, affine=True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(ndf * 8, ndf * 8, 3, 1, 1),
-            nn.InstanceNorm3d(ndf * 8, affine=True),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.AvgPool3d(kernel_size=2),
         )
         self.block5 = nn.Sequential(
-            nn.Conv3d(ndf * 8 + nc, 1, 3, 1, 1),
-            nn.InstanceNorm3d(1, affine=True),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv3d(1, 1, 4, 1, 0),
+            nn.Conv3d(ndf * 8 + nc, 1, 4, 1, 0),
         )
         self.blocks = [self.block1, self.block2, self.block3, self.block4, self.block5]
 
@@ -322,8 +284,8 @@ for epoch in range(num_epochs):
             errD_fake.backward(one)
             D_G_z1 = errD_fake.item()
 
-            gradient_penalty = calc_gradient_penalty(netD, real, fake)
-            gradient_penalty.backward()
+            #gradient_penalty = calc_gradient_penalty(netD, real, fake)
+            #gradient_penalty.backward()
 
             errD = errD_fake - errD_real# + gradient_penalty
             w_d = errD_real - errD_fake
