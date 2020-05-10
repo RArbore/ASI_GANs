@@ -129,6 +129,8 @@ class Generator(nn.Module):
         )
         self.block5 = nn.Sequential(
             nn.ConvTranspose3d(ngf, nc, 4, 2, 1),
+            #nn.BatchNorm3d(nc),
+            #nn.ReLU(True),
         )
         self.blocks = [self.block1, self.block2, self.block3, self.block4, self.block5]
         self.rgb1 = nn.Sequential(
@@ -143,7 +145,10 @@ class Generator(nn.Module):
         self.rgb4 = nn.Sequential(
             nn.Conv3d(ngf, nc, 1)
         )
-        self.rgbs = [self.rgb1, self.rgb2, self.rgb3, self.rgb4]
+        self.rgb5 = nn.Sequential(
+            nn.Conv3d(nc, nc, 1)
+        )
+        self.rgbs = [self.rgb1, self.rgb2, self.rgb3, self.rgb4, self.rgb5]
 
     def forward(self, input):
         out = input
@@ -152,9 +157,8 @@ class Generator(nn.Module):
         for block in self.blocks:
             out = block(out)
             h_reps.append(out)
-            if i < len(self.blocks) - 1:
-                h_reps[i] = self.rgbs[i](h_reps[i])
-                i += 1
+            h_reps[i] = self.rgbs[i](h_reps[i])
+            i += 1
         return h_reps
 
 netG = Generator().to(device)
@@ -243,13 +247,15 @@ def calc_gradient_penalty(D, r, f):
     prob_interpolated = D(interpolated)
 
     # calculate gradients of probabilities with respect to examples
-    gradients = torch.autograd.grad(outputs=prob_interpolated, inputs=interpolated,
-                              grad_outputs=torch.ones(
-                                  prob_interpolated.size()).to(device),
-                              create_graph=True, retain_graph=True)[0]
-
-    grad_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
-    return grad_penalty
+    penalties = []
+    for i in range(5):
+        gradients = torch.autograd.grad(outputs=prob_interpolated, inputs=interpolated[i],
+                                  grad_outputs=torch.ones(
+                                      prob_interpolated.size()).to(device),
+                                  create_graph=True, retain_graph=True)[0]
+        grad_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
+        penalties.append(grad_penalty)
+    return torch.mean(torch.stack(penalties))
 
 print("Starting Training Loop...")
 for epoch in range(num_epochs):
@@ -284,10 +290,10 @@ for epoch in range(num_epochs):
             errD_fake.backward(one)
             D_G_z1 = errD_fake.item()
 
-            #gradient_penalty = calc_gradient_penalty(netD, real, fake)
-            #gradient_penalty.backward()
+            gradient_penalty = calc_gradient_penalty(netD, real, fake)
+            gradient_penalty.backward()
 
-            errD = errD_fake - errD_real# + gradient_penalty
+            errD = errD_fake - errD_real + gradient_penalty
             w_d = errD_real - errD_fake
 
             optimizerD.step()
@@ -355,10 +361,11 @@ for epoch in range(num_epochs):
                 print("Writing models...")
                 torch.save(netD.state_dict(), folder + "/gan_models/dis_at_e" + str(epoch + 1) + ".pt")
                 torch.save(netG.state_dict(), folder + "/gan_models/gen_at_e" + str(epoch + 1) + ".pt")
-            for image in range(0, batch_size):
-                for dim in range(0, image_size):
-                    save_image(fake[4][image, 0, dim, :, :], folder + "/gan_output/epoch_" + str(epoch) + "/scanimage" + str(image + 1) + "_dim" + str(dim + 1) + ".png")
-                    save_image(fake[4][image, 1, dim, :, :], folder + "/gan_output/epoch_" + str(epoch) + "/segimage" + str(image + 1) + "_dim" + str(dim + 1) + ".png")
+            for image in range(batch_size):
+                for size in range(5):
+                    for dim in range(2**(size+2)):
+                        save_image(fake[size][image, 0, dim, :, :], folder + "/gan_output/epoch_" + str(epoch) + "/scanimage" + str(image + 1) + "_size" + str(size + 1) + "_dim" + str(dim + 1) + ".png")
+                        save_image(fake[size][image, 1, dim, :, :], folder + "/gan_output/epoch_" + str(epoch) + "/segimage" + str(image + 1) + "_size" + str(size + 1) + "_dim" + str(dim + 1) + ".png")
             #save_image(real[0, 0, :, :],folder + "/gan_output/epoch_" + str(epoch) + "/real_image" + str(image + 1) + ".png")
         G_losses.append(errG.item())
         D_losses.append(errD.item())
