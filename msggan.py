@@ -15,9 +15,9 @@ print("Random Seed: ", manualSeed)
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 
-train_data_size = 335
+train_data_size = 1
 
-batch_size = 5
+batch_size = 1
 
 num_epochs = 5000
 
@@ -129,8 +129,8 @@ class Generator(nn.Module):
         )
         self.block5 = nn.Sequential(
             nn.ConvTranspose3d(ngf, nc, 4, 2, 1),
-            #nn.BatchNorm3d(nc),
-            #nn.ReLU(True),
+            nn.BatchNorm3d(nc),
+            nn.ReLU(True),
         )
         self.blocks = [self.block1, self.block2, self.block3, self.block4, self.block5]
         self.rgb1 = nn.Sequential(
@@ -157,7 +157,7 @@ class Generator(nn.Module):
         for block in self.blocks:
             out = block(out)
             h_reps.append(out)
-            h_reps[i] = self.rgbs[i](h_reps[i])
+            h_reps[i] = torch.tanh(self.rgbs[i](h_reps[i]))
             i += 1
         return h_reps
 
