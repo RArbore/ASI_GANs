@@ -15,9 +15,9 @@ print("Random Seed: ", manualSeed)
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 
-train_data_size = 335
+train_data_size = 1
 
-batch_size = 5
+batch_size = 1
 
 num_epochs = 5000
 
@@ -103,35 +103,61 @@ print("Data loading took " + str(minutes) + " minute(s) " + str(seconds) + " sec
 def check_nan(x):
     return torch.sum(x != x) > 0
 
+class FeatureNormLayer(nn.Module):
+    def __init__(self, eps=1e-8):
+        super(FeatureNormLayer, self).__init__()
+        self.eps = eps
+
+    def forward(self, x):
+        return x / torch.sqrt(torch.mean(x ** 2, dim=1, keepdim=True) + 1e-8)
+
 class Generator(nn.Module):
 
     def __init__(self):
         super(Generator, self).__init__()
         self.block1 = nn.Sequential(
-            nn.ConvTranspose3d(nz, ngf * 8, 4, 1, 0),
-            nn.BatchNorm3d(ngf * 8),
-            nn.ReLU(True),
+            nn.Conv3d(nz, ngf * 8, 4, 1, 3, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            FeatureNormLayer(),
+            nn.Conv3d(ngf * 8, ngf * 8, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            FeatureNormLayer(),
         )
         self.block2 = nn.Sequential(
-            nn.ConvTranspose3d(ngf * 8, ngf * 4, 4, 2, 1),
-            nn.BatchNorm3d(ngf * 4),
-            nn.ReLU(True),
+            nn.Upsample(scale_factor=2),
+            nn.Conv3d(ngf * 8, ngf * 4, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            FeatureNormLayer(),
+            nn.Conv3d(ngf * 4, ngf * 4, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            FeatureNormLayer(),
         )
         self.block3 = nn.Sequential(
-            nn.ConvTranspose3d(ngf * 4, ngf * 2, 4, 2, 1),
-            nn.BatchNorm3d(ngf * 2),
-            nn.ReLU(True),
+            nn.Upsample(scale_factor=2),
+            nn.Conv3d(ngf * 4, ngf * 2, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            FeatureNormLayer(),
+            nn.Conv3d(ngf * 2, ngf * 2, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            FeatureNormLayer(),
         )
         self.block4 = nn.Sequential(
-            nn.ConvTranspose3d(ngf * 2, ngf, 4, 2, 1),
-            nn.BatchNorm3d(ngf),
-            nn.ReLU(True),
+            nn.Upsample(scale_factor=2),
+            nn.Conv3d(ngf * 2, ngf, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            FeatureNormLayer(),
+            nn.Conv3d(ngf, ngf, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            FeatureNormLayer(),
         )
         self.block5 = nn.Sequential(
-            nn.ConvTranspose3d(ngf, nc, 4, 2, 1),
-            #nn.BatchNorm3d(nc),
-            #nn.ReLU(True),
+            nn.Upsample(scale_factor=2),
+            nn.Conv3d(ngf, nc, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            FeatureNormLayer(),
+            nn.Conv3d(nc, nc, 3, 1, 1, bias=False),
         )
+
         self.blocks = [self.block1, self.block2, self.block3, self.block4, self.block5]
         self.rgb1 = nn.Sequential(
             nn.Conv3d(ngf * 8, nc, 1)
@@ -170,27 +196,37 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
         self.block1 = nn.Sequential(
-            nn.Conv3d(nc, ndf, 4, 2, 1),
-            nn.InstanceNorm3d(ndf, affine=True),
+            nn.Conv3d(nc, ndf, 3, 1, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(ndf, ndf, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.AvgPool3d(kernel_size=2),
         )
         self.block2 = nn.Sequential(
-            nn.Conv3d(ndf + nc, ndf * 2, 4, 2, 1),
-            nn.InstanceNorm3d(ndf * 2, affine=True),
+            nn.Conv3d(ndf + nc, ndf * 2, 3, 1, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(ndf * 2, ndf * 2, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.AvgPool3d(kernel_size=2),
         )
         self.block3 = nn.Sequential(
-            nn.Conv3d(ndf * 2 + nc, ndf * 4, 4, 2, 1),
-            nn.InstanceNorm3d(ndf * 4, affine=True),
+            nn.Conv3d(ndf * 2 + nc, ndf * 4, 3, 1, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(ndf * 4, ndf * 4, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.AvgPool3d(kernel_size=2),
         )
         self.block4 = nn.Sequential(
-            nn.Conv3d(ndf * 4 + nc, ndf * 8, 4, 2, 1),
-            nn.InstanceNorm3d(ndf * 8, affine=True),
+            nn.Conv3d(ndf * 4 + nc, ndf * 8, 3, 1, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(ndf * 8, ndf * 8, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.AvgPool3d(kernel_size=2),
         )
         self.block5 = nn.Sequential(
-            nn.Conv3d(ndf * 8 + nc, 1, 4, 1, 0),
+            nn.Conv3d(ndf * 8 + nc, ndf * 16, 3, 1, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(ndf * 16, 1, 4, 1, 0, bias=False),
         )
         self.blocks = [self.block1, self.block2, self.block3, self.block4, self.block5]
 
