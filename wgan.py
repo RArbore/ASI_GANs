@@ -15,17 +15,17 @@ print("Random Seed: ", manualSeed)
 random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 
-train_data_size = 335
+train_data_size = 300
 
-batch_size = 5
+batch_size = 10
 
-num_epochs = 5000
+num_epochs = 1500
 
 image_size = 64
 
 ngpu = 1
 
-nz = 100
+nz = 256
 
 nc = 2
 
