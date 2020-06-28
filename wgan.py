@@ -40,7 +40,7 @@ LAMBDA = 10
 b1 = 0.5
 b2 = 0.999
 
-critic_iter = 1
+critic_iter = 5
 
 gen_iter = 1
 
@@ -127,10 +127,11 @@ class Generator(nn.Module):
             nn.ConvTranspose3d(ngf, nc, 4, 2, 1),
             #nn.Conv3d(nc, nc, 3, 1, 1),
         )
+        '''
 
     def forward(self, input):
         out = self.layers(input)
-        return torch.tanh(out)
+        return (torch.tanh(out)+1)/2
 
 netG = Generator().to(device)
 
@@ -160,6 +161,7 @@ class Discriminator(nn.Module):
             nn.Conv3d(ndf * 8, 1, 4, 1, 0),
             #nn.Conv3d(1, 1, 3, 1, 1),
         )
+        '''
 
     def forward(self, input):
         out = self.layers(input)
